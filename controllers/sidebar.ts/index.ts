@@ -19,7 +19,7 @@ export function getSingleCategoryController(c: Context) {
     return getSingleCategoryData(c);
   }
 
-export function updateCategoryController(c: Context) {
+  export function updateCategoryController(c: Context) {
     return updateCategoryData(c);
   }
 

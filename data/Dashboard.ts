@@ -86,22 +86,43 @@ export async function createItemData(c: Context) {
 
 export async function getItemsByCategoryData(c: Context) {
     try {
-        const category = c.req.param('category');
-        const items = await prisma.pos_items.findMany({
-            where: { category },
-            orderBy: { name: 'asc' }
+        // Get the category from query parameters
+        const category = c.req.query('category');
+        
+        // If a specific category is requested (e.g., "Drinks")
+        if (category) {
+            const items = await prisma.pos_items.findMany({
+                where: {
+                    category: category,
+                },
+                orderBy: { name: 'asc' },
+            });
+            
+            return c.json({
+                success: true,
+                data: items,
+                count: items.length,
+            });
+        }
+        
+        // If no category is provided, return all distinct categories
+        const categories = await prisma.pos_items.findMany({
+            distinct: ['category'],
+            select: {
+                category: true
+            },
+            orderBy: { category: 'asc' },
         });
-
+        
         return c.json({
             success: true,
-            data: items,
-            count: items.length
+            categories: categories.map(c => c.category).filter(Boolean),
         });
-
+        
     } catch (err) {
         console.error('Error fetching items by category:', err);
         return c.json({ 
-            error: 'Failed to fetch items',
+            error: 'Failed to fetch items by category',
             details: process.env.NODE_ENV === 'development' ? (err as Error).message : null
         }, 500);
     }
