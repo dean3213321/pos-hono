@@ -59,7 +59,7 @@ export async function createItemData(c: Context) {
             photo_path = photoUrl;
         }
         // Photo is optional in the schema, so we don't return an error if neither is provided
-
+             
         // Create item in database
         const newItem = await prisma.pos_items.create({
             data: {
@@ -79,6 +79,29 @@ export async function createItemData(c: Context) {
         console.error('Error creating item:', err);
         return c.json({ 
             error: 'Failed to create item',
+            details: process.env.NODE_ENV === 'development' ? (err as Error).message : null
+        }, 500);
+    }
+}
+
+export async function getItemsByCategoryData(c: Context) {
+    try {
+        const category = c.req.param('category');
+        const items = await prisma.pos_items.findMany({
+            where: { category },
+            orderBy: { name: 'asc' }
+        });
+
+        return c.json({
+            success: true,
+            data: items,
+            count: items.length
+        });
+
+    } catch (err) {
+        console.error('Error fetching items by category:', err);
+        return c.json({ 
+            error: 'Failed to fetch items',
             details: process.env.NODE_ENV === 'development' ? (err as Error).message : null
         }, 500);
     }
@@ -119,24 +142,132 @@ export async function getAllItemsData(c: Context) {
     }
 }
 
-export async function getItemsByCategoryData(c: Context) {
+export async function updateItemData(c: Context) {
     try {
-        const category = c.req.param('category');
-        const items = await prisma.pos_items.findMany({
-            where: { category },
-            orderBy: { name: 'asc' }
+      const itemId = c.req.param('id')
+      const formData = await c.req.formData()
+      const name = formData.get('name')
+      const photoFile = formData.get('photo')
+      const photoUrl = formData.get('photo_url')
+      const category = formData.get('category')
+      const price = formData.get('price')
+  
+      // Validate required fields
+      if (!name || typeof name !== 'string') {
+        return c.json({ error: 'Valid name is required' }, 400)
+      }
+      if (!price || isNaN(Number(price))) {
+        return c.json({ error: 'Valid price is required' }, 400)
+      }
+  
+      // Fetch existing
+      const existingItem = await prisma.pos_items.findUnique({
+        where: { id: Number(itemId) }
+      })
+      if (!existingItem) {
+        return c.json({ error: 'Item not found' }, 404)
+      }
+  
+      let photo_path = existingItem.photo_path
+  
+      //
+      // —— NEW UPLOAD CHECK —— 
+      // Only treat as a new upload when the File object actually has size > 0
+      //
+      if (photoFile instanceof File && photoFile.size > 0) {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+        const maxSize = 5 * 1024 * 1024
+        if (!allowedTypes.includes(photoFile.type)) {
+          return c.json({ error: 'Only JPG, PNG, and WEBP images are allowed' }, 400)
+        }
+        if (photoFile.size > maxSize) {
+          return c.json({ error: 'Image size must be less than 5MB' }, 400)
+        }
+  
+        // Save new file
+        const fileExt = path.extname(photoFile.name)
+        const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExt}`
+        const filePath = path.join(uploadsDir, fileName)
+        const buffer = await photoFile.arrayBuffer()
+        await fs.writeFile(filePath, Buffer.from(buffer))
+  
+        // Delete old upload if it wasn’t a URL
+        if (photo_path && !photo_path.startsWith('http')) {
+          const old = path.join(uploadsDir, path.basename(photo_path))
+          fs.unlink(old).catch(() => {/* ignore */})
+        }
+  
+        photo_path = `/uploads/${fileName}`
+      }
+      // If user provided a direct URL override
+      else if (photoUrl && typeof photoUrl === 'string') {
+        if (photo_path && !photo_path.startsWith('http')) {
+          const old = path.join(uploadsDir, path.basename(photo_path))
+          fs.unlink(old).catch(() => {/* ignore */})
+        }
+        photo_path = photoUrl
+      }
+      // else: no new file, no URL → keep existing photo_path
+  
+      // Persist update
+      const updatedItem = await prisma.pos_items.update({
+        where: { id: Number(itemId) },
+        data: {
+          name,
+          photo_path: photo_path || null,
+          category: typeof category === 'string' ? category : null,
+          price: Number(price),
+        },
+      })
+  
+      return c.json({ success: true, item: updatedItem })
+  
+    } catch (err) {
+      console.error('Error updating item:', err)
+      return c.json({
+        error: 'Failed to update item',
+        details: process.env.NODE_ENV === 'development' ? (err as Error).message : null
+      }, 500)
+    }
+  }
+
+export async function deleteItemData(c: Context) {
+    try {
+        const itemId = c.req.param('id');
+
+        // Check if item exists
+        const existingItem = await prisma.pos_items.findUnique({
+            where: { id: Number(itemId) }
+        });
+
+        if (!existingItem) {
+            return c.json({ error: 'Item not found' }, 404);
+        }
+
+        // Delete associated photo file if it exists and is not a URL
+        if (existingItem.photo_path && !existingItem.photo_path.startsWith('http')) {
+            const filePath = path.join(uploadsDir, path.basename(existingItem.photo_path));
+            try {
+                await fs.unlink(filePath);
+            } catch (err) {
+                console.warn('Failed to delete associated image:', err);
+            }
+        }
+
+        // Delete item from database
+        await prisma.pos_items.delete({
+            where: { id: Number(itemId) }
         });
 
         return c.json({
             success: true,
-            data: items,
-            count: items.length
+            message: 'Item deleted successfully'
         });
 
     } catch (err) {
-        console.error('Error fetching items by category:', err);
+        console.error('Error deleting item:', err);
         return c.json({ 
-            error: 'Failed to fetch items',
+            error: 'Failed to delete item',
             details: process.env.NODE_ENV === 'development' ? (err as Error).message : null
         }, 500);
     }

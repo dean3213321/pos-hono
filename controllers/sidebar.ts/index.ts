@@ -2,10 +2,10 @@ import { type  Context } from "hono"
 import { 
     createCategoryData,
     getCategoryData, 
-    getSingleCategoryData
+    getSingleCategoryData,
+    updateCategoryData,
+    deleteCategoryData
   } from "../../data/sidebar.js"
-
-
 
 export function createCategoryController(c: Context) {
     return createCategoryData(c);
@@ -19,3 +19,10 @@ export function getSingleCategoryController(c: Context) {
     return getSingleCategoryData(c);
   }
 
+export function updateCategoryController(c: Context) {
+    return updateCategoryData(c);
+  }
+
+export function deleteCategoryController(c: Context) {
+    return deleteCategoryData(c);
+  }

@@ -2,7 +2,9 @@ import { type  Context } from "hono"
 import { 
     createItemData, 
     getAllItemsData,
-    getItemsByCategoryData
+    getItemsByCategoryData,
+    updateItemData,
+    deleteItemData,
 } from "../../data/Dashboard.js"
 
 
@@ -14,6 +16,14 @@ export function getAllItemsController(c: Context) {
     return getAllItemsData(c);
   }
 
-  export function getItemsByCategoryController(c: Context) {
+export function getItemsByCategoryController(c: Context) {
     return getItemsByCategoryData(c);
+  }
+
+export function updateItemController(c: Context) {
+    return updateItemData(c);
+  }
+
+export function deleteItemController(c: Context) {
+    return deleteItemData(c);
   }
