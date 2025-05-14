@@ -13,3 +13,8 @@ GET http://localhost:3000/api/itemCategory?category=Drinks
 
 ###
 GET http://localhost:3000/api/itemCategory
+
+
+###
+
+GET http://localhost:3000/api/wispay/credit?rfid=2952221239

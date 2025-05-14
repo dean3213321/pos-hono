@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model pos_admin {
   id         Int      @id @default(autoincrement())
   username   String   @unique(map: "username") @db.VarChar(50)
@@ -33,3 +32,17 @@ model pos_items {
   updated_at DateTime? @default(now()) @db.DateTime(0)
 }
 
+model wispay {
+  id           Int      @id @default(autoincrement())
+  debit        Decimal  @db.Decimal(10, 2)
+  credit       Decimal  @db.Decimal(10, 2)
+  rfid         BigInt
+  empid        String   @db.Text
+  username     String   @db.VarChar(255)
+  refcode      String   @db.Text
+  transdate    DateTime @db.DateTime(0)
+  processedby  String   @db.Text
+  product_type String   @db.VarChar(255)
+  product_name String   @db.VarChar(255)
+  quantity     Float    @db.Float
+}
