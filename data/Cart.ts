@@ -25,7 +25,6 @@ async function computeWispayBalance(rfidNumber: bigint): Promise<number> {
   const sumDebit  = Number(agg._sum.debit  ?? 0);
   return sumCredit - sumDebit;
 }
-
 // GET /api/wispay/credit?rfid=...
 export async function getWispayCreditByRfidData(c: Context) {
   try {
