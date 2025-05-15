@@ -5,6 +5,7 @@ import {
     getItemsByCategoryData,
     updateItemData,
     deleteItemData,
+    createOrderData,
 } from "../../data/Dashboard.js"
 
 
@@ -26,4 +27,8 @@ export function updateItemController(c: Context) {
 
 export function deleteItemController(c: Context) {
     return deleteItemData(c);
+  }
+
+export function createOrderController(c: Context) {
+    return createOrderData(c);
   }

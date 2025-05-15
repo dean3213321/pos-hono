@@ -5,6 +5,7 @@ import {
     getItemsByCategoryController,
     updateItemController,
     deleteItemController,
+    createOrderController,
 } from './index.js';
 
 const router = new Hono()
@@ -13,5 +14,6 @@ const router = new Hono()
     .get('/api/itemCategory', getItemsByCategoryController)
     .put('/api/items/:id', updateItemController)
     .delete('/api/items/:id', deleteItemController)
+    .post('/api/order', createOrderController)
 
 export default router 

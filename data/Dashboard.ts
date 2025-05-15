@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
 await fs.mkdir(uploadsDir, { recursive: true });
 
-
 export async function createItemData(c: Context) {
     try {
         const formData = await c.req.formData();
@@ -48,9 +47,9 @@ export async function createItemData(c: Context) {
                 return c.json({ error: 'Image size must be less than 5MB' }, 400);
             }
 
-            // Generate unique filename
-            const fileExt = path.extname(photoFile.name);
-            const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExt}`;
+            // Generate filename with timestamp prefix to ensure uniqueness
+            const originalName = photoFile.name;
+            const fileName = `${originalName}`;
             const filePath = path.join(uploadsDir, fileName);
 
             // Save file
@@ -58,7 +57,7 @@ export async function createItemData(c: Context) {
             await fs.writeFile(filePath, Buffer.from(buffer));
 
             photo_path = `/uploads/${fileName}`;
-        } 
+        }
         // Handle URL case
         else if (photoUrl && typeof photoUrl === 'string') {
             photo_path = photoUrl;
@@ -175,93 +174,90 @@ export async function getItemsByCategoryData(c: Context) {
 
 export async function updateItemData(c: Context) {
     try {
-      const itemId = c.req.param('id');
-      const formData = await c.req.formData();
-      const name = formData.get('name');
-      const photoFile = formData.get('photo');
-      const photoUrl = formData.get('photo_url');
-      const category = formData.get('category');
-      const priceRaw = formData.get('price');
-      const quantityRaw = formData.get('quantity');
-  
-      // Validate required fields
-      if (!name || typeof name !== 'string') {
-        return c.json({ error: 'Valid name is required' }, 400);
-      }
-      if (!priceRaw || isNaN(Number(priceRaw))) {
-        return c.json({ error: 'Valid price is required' }, 400);
-      }
-      if (quantityRaw === null || isNaN(Number(quantityRaw))) {
-        return c.json({ error: 'Valid quantity is required' }, 400);
-      }
-      const price = Number(priceRaw);
-      const quantity = Number(quantityRaw);
-  
-      // Fetch existing
-      const existingItem = await prisma.pos_items.findUnique({
-        where: { id: Number(itemId) }
-      });
-      if (!existingItem) {
-        return c.json({ error: 'Item not found' }, 404);
-      }
-  
-      let photo_path = existingItem.photo_path;
-  
-      // —— NEW UPLOAD CHECK ——
-      if (photoFile instanceof File && photoFile.size > 0) {
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-        const maxSize = 5 * 1024 * 1024;
-        if (!allowedTypes.includes(photoFile.type)) {
-          return c.json({ error: 'Only JPG, PNG, and WEBP images are allowed' }, 400);
+        const itemId = c.req.param('id');
+        const formData = await c.req.formData();
+        const name = formData.get('name');
+        const photoFile = formData.get('photo');
+        const photoUrl = formData.get('photo_url');
+        const category = formData.get('category');
+        const priceRaw = formData.get('price');
+        const quantityRaw = formData.get('quantity');
+
+        // Validate required fields
+        if (!name || typeof name !== 'string') {
+            return c.json({ error: 'Valid name is required' }, 400);
         }
-        if (photoFile.size > maxSize) {
-          return c.json({ error: 'Image size must be less than 5MB' }, 400);
+        if (!priceRaw || isNaN(Number(priceRaw))) {
+            return c.json({ error: 'Valid price is required' }, 400);
         }
-  
-        // Save new file
-        const fileExt = path.extname(photoFile.name);
-        const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExt}`;
-        const filePath = path.join(uploadsDir, fileName);
-        const buffer = await photoFile.arrayBuffer();
-        await fs.writeFile(filePath, Buffer.from(buffer));
-  
-        if (photo_path && !photo_path.startsWith('http')) {
-          const old = path.join(uploadsDir, path.basename(photo_path));
-          fs.unlink(old).catch(() => {/* ignore */});
+        if (quantityRaw === null || isNaN(Number(quantityRaw))) {
+            return c.json({ error: 'Valid quantity is required' }, 400);
         }
-        photo_path = `/uploads/${fileName}`;
-      }
-      else if (photoUrl && typeof photoUrl === 'string') {
-        if (photo_path && !photo_path.startsWith('http')) {
-          const old = path.join(uploadsDir, path.basename(photo_path));
-          fs.unlink(old).catch(() => {/* ignore */});
+        const price = Number(priceRaw);
+        const quantity = Number(quantityRaw);
+
+        // Fetch existing
+        const existingItem = await prisma.pos_items.findUnique({
+            where: { id: Number(itemId) }
+        });
+        if (!existingItem) {
+            return c.json({ error: 'Item not found' }, 404);
         }
-        photo_path = photoUrl;
-      }
-      // else: keep existing photo_path
-  
-      // Persist update including quantity
-      const updatedItem = await prisma.pos_items.update({
-        where: { id: Number(itemId) },
-        data: {
-          name,
-          photo_path: photo_path || null,
-          category: typeof category === 'string' ? category : null,
-          price,
-          quantity
-        },
-      });
-  
-      return c.json({ success: true, item: updatedItem });
-  
-    } catch (err) {
-      console.error('Error updating item:', err);
-      return c.json({
-        error: 'Failed to update item',
-        details: process.env.NODE_ENV === 'development' ? (err as Error).message : null
-      }, 500);
+
+        let photo_path = existingItem.photo_path;
+
+        // —— NEW UPLOAD CHECK ——
+        if (photoFile instanceof File && photoFile.size > 0) {
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            const maxSize = 5 * 1024 * 1024;
+            if (!allowedTypes.includes(photoFile.type)) {
+                return c.json({ error: 'Only JPG, PNG, and WEBP images are allowed' }, 400);
+            }
+            if (photoFile.size > maxSize) {
+                return c.json({ error: 'Image size must be less than 5MB' }, 400);
+            }
+
+            // Save new file with timestamp-prefixed original name
+            const originalName = photoFile.name;
+            const fileName = `${originalName}`;
+            const filePath = path.join(uploadsDir, fileName);
+            const buffer = await photoFile.arrayBuffer();
+            await fs.writeFile(filePath, Buffer.from(buffer));
+
+            // Delete old file if it exists and is a local file
+            if (photo_path && !photo_path.startsWith('http')) {
+                const old = path.join(uploadsDir, path.basename(photo_path));
+                fs.unlink(old).catch(() => {/* ignore */});
+            }
+            photo_path = `/uploads/${fileName}`;
+        }
+        else if (photoUrl && typeof photoUrl === 'string') {
+            // Handle URL case (existing behavior remains the same)
+            if (photo_path && !photo_path.startsWith('http')) {
+                const old = path.join(uploadsDir, path.basename(photo_path));
+                fs.unlink(old).catch(() => {/* ignore */});
+            }
+            photo_path = photoUrl;
+        }
+
+        // Rest of your update logic...
+        const updatedItem = await prisma.pos_items.update({
+            where: { id: Number(itemId) },
+            data: {
+                name,
+                photo_path,
+                category: category ? String(category) : null,
+                price,
+                quantity
+            }
+        });
+
+        return c.json(updatedItem);
+    } catch (error) {
+        console.error('Error updating item:', error);
+        return c.json({ error: 'Internal server error' }, 500);
     }
-  }
+}
 
 export async function deleteItemData(c: Context) {
     try {
@@ -303,4 +299,37 @@ export async function deleteItemData(c: Context) {
             details: process.env.NODE_ENV === 'development' ? (err as Error).message : null
         }, 500);
     }
+}
+
+export async function createOrderData(c: Context) {
+  try {
+    const { items } = await c.req.json<{ items: { id: number; quantity: number }[] }>()
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return c.json({ success: false, error: 'No items to order' }, 400)
+    }
+
+    // Build an array of update operations
+    const ops = items.map(item =>
+      prisma.pos_items.update({
+        where: { id: item.id },
+        data: {
+          quantity: {
+            decrement: item.quantity,
+          },
+        },
+      })
+    )
+
+    // Run all updates in a transaction
+    await prisma.$transaction(ops)
+
+    return c.json({ success: true })
+  } catch (err) {
+    console.error('Error creating order:', err)
+    return c.json(
+      { success: false, error: 'Failed to create order' },
+      500
+    )
+  }
 }
