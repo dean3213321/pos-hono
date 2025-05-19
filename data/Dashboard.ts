@@ -303,13 +303,46 @@ export async function deleteItemData(c: Context) {
 
 export async function createOrderData(c: Context) {
   try {
-    const { items } = await c.req.json<{ items: { id: number; quantity: number }[] }>()
+    const { items, paymentType, rfid, total } = await c.req.json<{
+      items: { id: number; quantity: number; price: number; name: string }[]
+      paymentType: 'Cash' | 'Wispay'
+      rfid?: string
+      total: number
+    }>();
 
     if (!Array.isArray(items) || items.length === 0) {
-      return c.json({ success: false, error: 'No items to order' }, 400)
+      return c.json({ success: false, error: 'No items to order' }, 400);
     }
 
-    // Build an array of update operations
+    // Generate order number (e.g., ORD-YYYYMMDD-XXXXX)
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const randomNum = Math.floor(10000 + Math.random() * 90000);
+    const orderNumber = `WIS-${dateStr}-${randomNum}`;
+
+    // Create the order with items
+    const order = await prisma.pos_Order.create({
+      data: {
+        orderNumber,
+        status: 'Preparing',
+        paymentType,
+        rfid,
+        total,
+        items: {
+          create: items.map(item => ({
+            itemId: item.id,
+            quantity: item.quantity,
+            price: item.price,
+            name: item.name
+          }))
+        }
+      },
+      include: {
+        items: true
+      }
+    });
+
+    // Update inventory
     const ops = items.map(item =>
       prisma.pos_items.update({
         where: { id: item.id },
@@ -319,17 +352,44 @@ export async function createOrderData(c: Context) {
           },
         },
       })
-    )
+    );
 
-    // Run all updates in a transaction
-    await prisma.$transaction(ops)
+    await prisma.$transaction(ops);
 
-    return c.json({ success: true })
+    return c.json({ 
+      success: true, 
+      orderNumber: order.orderNumber 
+    });
   } catch (err) {
-    console.error('Error creating order:', err)
+    console.error('Error creating order:', err);
     return c.json(
       { success: false, error: 'Failed to create order' },
       500
-    )
+    );
   }
+}
+
+export async function getOrdersData(c: Context) {
+  const orders = await prisma.pos_Order.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { items: true }
+  });
+  return c.json(orders);
+}
+
+export async function updateOrderStatusData(c: Context) {
+  const orderNumber = c.req.param('orderNumber');
+  const { status } = await c.req.json<{ status: string }>();
+
+  const validStatuses = ['Preparing', 'Serving', 'Completed', 'Cancelled'];
+  if (!validStatuses.includes(status)) {
+    return c.json({ error: 'Invalid status' }, 400);
+  }
+
+  const order = await prisma.pos_Order.update({
+    where: { orderNumber },
+    data: { status: status as any } // Replace 'any' with 'OrderStatus' if you have the enum imported
+  });
+
+  return c.json(order);
 }
