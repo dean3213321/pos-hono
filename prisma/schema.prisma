@@ -48,3 +48,41 @@ model wispay {
   quantity     Float    @db.Float
 }
 
+model pos_Order {
+  id          Int              @id @default(autoincrement())
+  orderNumber String           @unique
+  items       pos_OrderItem[]
+  status      OrderStatus      @default(Preparing)
+  total       Decimal          @db.Decimal(10, 2)
+  paymentType PaymentType
+  rfid        String?
+  createdAt   DateTime         @default(now()) @db.DateTime(0)
+  updatedAt   DateTime         @updatedAt      @db.DateTime(0)
+  userId      String?
+
+  @@map("pos_Order")
+}
+
+model pos_OrderItem {
+  id       Int        @id @default(autoincrement())
+  order    pos_Order  @relation(fields: [orderId], references: [id])
+  orderId  Int
+  itemId   Int
+  quantity Int
+  price    Decimal    @db.Decimal(10, 2)
+  name     String
+
+  @@map("pos_OrderItem")
+}
+
+enum OrderStatus {
+  Preparing
+  Serving
+  Completed
+  Cancelled
+}
+
+enum PaymentType {
+  Cash
+  Wispay
+}
