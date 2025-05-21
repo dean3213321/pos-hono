@@ -17,8 +17,12 @@ GET http://localhost:3000/api/itemCategory
 
 ###
 
-GET http://localhost:3000/api/wispay/credit?rfid=2566721524
+GET http://localhost:3000/api/wispay/credit?rfid=2558453492
 
 ###
 
 POST http://localhost:3000/api/wispay/credit
+
+###
+
+GET http://localhost:3000/api/wispay/user

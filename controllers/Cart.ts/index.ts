@@ -3,6 +3,7 @@ import {
     getWispayCreditByRfidData,
     processWispayPaymentData,
     addWispayCreditData,
+    getUsersData,
 } from "../../data/Cart.js"
 
 export function getWispayCreditByRfidController(c: Context) {
@@ -15,4 +16,8 @@ export function processWispayPaymentController(c: Context) {
 
 export function addWispayCreditController(c: Context) {
     return addWispayCreditData(c);
+  }
+
+export function getUsersController(c: Context) {
+    return getUsersData(c);
   }
