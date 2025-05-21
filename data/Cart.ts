@@ -308,3 +308,39 @@ export async function getUsersData(c: Context) {
     }, 500);
   }
 }
+
+// /api/wispay/user/balances
+export async function getUsersBalancesData(c: Context) {
+  try {
+    // Get all users with RFID
+    const users = await prisma.user.findMany({
+      select: {
+        rfid: true,
+      },
+      where: {
+        rfid: {
+          not: undefined
+        }
+      }
+    });
+
+    // Calculate balances for each user
+    const balances = await Promise.all(
+      users.map(async (user) => {
+        const balance = await computeWispayBalance(user.rfid);
+        return {
+          rfid: user.rfid.toString(),
+          balance: balance.toFixed(2)
+        };
+      })
+    );
+
+    return c.json(balances, 200);
+  } catch (err) {
+    console.error('Error fetching balances:', err);
+    return c.json({ 
+      error: 'Unable to fetch balances',
+      details: process.env.NODE_ENV === 'development' ? (err instanceof Error ? err.message : String(err)) : null
+    }, 500);
+  }
+}
